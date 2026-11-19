@@ -19,6 +19,17 @@
 #'   data to permute (independently of each other). Defaults to only the
 #'   response variable. Note that any derived effects that depend on these
 #'   columns (e.g., interaction effects) will also be affected.
+#' @param clusters For cluster bootstrap inference. An unquoted column name in
+#'   the data giving the cluster (e.g. customer) that each row belongs to.
+#'   Supplying this argument switches `type = "bootstrap"` from row-wise to
+#'   cluster resampling: each bootstrap replicate draws the original number of
+#'   clusters with replacement and includes every row belonging to each
+#'   selected cluster, duplicating rows as many times as their cluster is
+#'   selected. Rows sharing a cluster are never split. The same column must
+#'   also have been supplied to [specify()] via its `clusters` argument so
+#'   that it is retained through the pipeline. Defaults to `NULL`, in which
+#'   case individual rows are resampled as before. Ignored (with a warning)
+#'   for generation types other than `"bootstrap"`.
 #' @param ... Currently ignored.
 #'
 #' @return A tibble containing `reps` generated datasets, indicated by the
@@ -79,6 +90,7 @@ generate <- function(
   reps = 1,
   type = NULL,
   variables = !!response_expr(x),
+  clusters = NULL,
   ...
 ) {
   # Check type argument, warning if necessary
@@ -89,15 +101,25 @@ generate <- function(
   } else {
     use_auto_type(auto_type)
   }
+  # For MLR workflows no auto generation type is stored (see set_params()),
+  # so `use_auto_type()` may return NULL or an empty string there. Resolve
+  # either to bootstrap, the only generation type available without a
+  # hypothesis.
+  if (is.null(type) || !nzchar(type)) {
+    type <- "bootstrap"
+  }
   attr(x, "type") <- type
 
   check_cols(x, rlang::enquo(variables), type, missing(variables))
+
+  # Resolve the cluster variable, possibly inherited from specify()
+  clusters <- resolve_clusters_arg(x, rlang::enquo(clusters), type)
 
   attr(x, "generated") <- TRUE
 
   switch(
     type,
-    bootstrap = bootstrap(x, reps, ...),
+    bootstrap = bootstrap(x, reps, clusters = clusters, ...),
     permute = {
       check_permutation_attributes(x)
       permute(x, reps, rlang::enquo(variables), ...)
@@ -105,6 +127,70 @@ generate <- function(
     draw = draw(x, reps, ...),
     simulate = draw(x, reps, ...)
   )
+}
+
+# Resolve the `clusters` argument of generate(). Cluster resampling is only
+# activated when the user explicitly supplies `clusters` to generate(); a
+# cluster column stored by specify() is otherwise merely retained in the data
+# and ordinary row-wise resampling keeps its previous behavior. Returns a
+# single column name as a character string, or NULL for row-wise resampling.
+resolve_clusters_arg <- function(x, clusters_quo, type, call = caller_env()) {
+  arg_expr <- rlang::get_expr(clusters_quo)
+  stored <- attr(x, "clusters")
+
+  if (is.null(arg_expr)) {
+    return(NULL)
+  }
+
+  if (!rlang::is_symbolic(arg_expr)) {
+    cli_abort(
+      "The `clusters` argument should be an unquoted column name (not a \\
+       string in quotation marks).",
+      call = call
+    )
+  }
+
+  arg_names <- all.vars(arg_expr)
+
+  if (length(arg_names) != 1) {
+    cli_abort(
+      "The `clusters` argument should reference exactly one column.",
+      call = call
+    )
+  }
+
+  if (!arg_names %in% colnames(x)) {
+    cli_abort(
+      c(
+        'The cluster variable `{arg_names}` cannot be found in this \\
+         dataframe.',
+        i = "Cluster columns must be supplied to `specify()` via its \\
+             `clusters` argument so that they are retained in the pipeline."
+      ),
+      call = call
+    )
+  }
+
+  if (!is.null(stored) && !identical(arg_names, stored)) {
+    cli_abort(
+      "The `clusters` argument to `generate()` (`{arg_names}`) does not \\
+       match the cluster variable supplied to `specify()` (`{stored}`).",
+      call = call
+    )
+  }
+
+  cluster_name <- arg_names
+
+  if (type != "bootstrap") {
+    cli_warn(
+      "The {.arg clusters} argument is only used for the \\
+       {.val bootstrap} generation type and will be ignored for \\
+       {.val {type}} resampling."
+    )
+    cluster_name <- NULL
+  }
+
+  cluster_name
 }
 
 # Check that type argument is an implemented type
@@ -226,7 +312,7 @@ check_cols <- function(
   }
 }
 
-bootstrap <- function(x, reps = 1, ...) {
+bootstrap <- function(x, reps = 1, clusters = NULL, ...) {
   # Check if hypothesis test chosen
   if (is_hypothesized(x)) {
     # If so, shift the variable chosen to have a mean corresponding
@@ -245,9 +331,19 @@ bootstrap <- function(x, reps = 1, ...) {
     }
   }
 
+  if (!is.null(clusters)) {
+    return(cluster_bootstrap(x, reps, clusters))
+  }
+
   # Set variables for use in calculate()
   result <- rep_sample_n(x, size = nrow(x), replace = TRUE, reps = reps)
   result <- copy_attrs(to = result, from = x)
+  # Row-wise resampling never carries cluster bootstrap bookkeeping; the
+  # cluster column itself (if specify() retained one) stays in the data, but
+  # the absence of `cluster_sampling` marks this as a row-wise resample.
+  attr(result, "cluster_sampling") <- NULL
+  attr(result, "cluster_levels") <- NULL
+  attr(result, "cluster_data") <- NULL
 
   append_infer_class(result)
 }

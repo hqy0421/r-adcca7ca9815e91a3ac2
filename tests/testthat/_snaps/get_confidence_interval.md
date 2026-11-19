@@ -11,7 +11,7 @@
       get_confidence_interval(test_df, type = "other")
     Condition
       Error in `get_confidence_interval()`:
-      ! The options for `type` are "percentile", "se", or "bias-corrected".
+      ! The options for `type` are "percentile", "se", "bias-corrected", or "bca".
 
 ---
 
@@ -51,7 +51,7 @@
       get_confidence_interval(test_df, type = "se")
     Condition
       Error in `get_confidence_interval()`:
-      ! A numeric value needs to be given for `point_estimate` for `type` "se" or "bias-corrected".
+      ! A numeric value needs to be given for `point_estimate` for `type` "se", "bias-corrected", or "bca".
 
 ---
 
@@ -59,7 +59,7 @@
       get_confidence_interval(test_df, type = "bias-corrected")
     Condition
       Error in `get_confidence_interval()`:
-      ! A numeric value needs to be given for `point_estimate` for `type` "se" or "bias-corrected".
+      ! A numeric value needs to be given for `point_estimate` for `type` "se", "bias-corrected", or "bca".
 
 # get_confidence_interval can handle fitted objects
 

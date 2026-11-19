@@ -5,9 +5,21 @@
 \alias{get_ci}
 \title{Compute confidence interval}
 \usage{
-get_confidence_interval(x, level = 0.95, type = NULL, point_estimate = NULL)
+get_confidence_interval(
+  x,
+  level = 0.95,
+  type = NULL,
+  point_estimate = NULL,
+  contrast = NULL
+)
 
-get_ci(x, level = 0.95, type = NULL, point_estimate = NULL)
+get_ci(
+  x,
+  level = 0.95,
+  type = NULL,
+  point_estimate = NULL,
+  contrast = NULL
+)
 }
 \arguments{
 \item{x}{A distribution. For simulation-based inference, a data frame
@@ -24,14 +36,33 @@ Default value is 0.95.}
 \item{type}{A string giving which method should be used for creating the
 confidence interval. The default is \code{"percentile"} with \code{"se"}
 corresponding to (multiplier * standard error) and \code{"bias-corrected"} for
-bias-corrected interval as other options.}
+bias-corrected interval as other options. Use \code{"bca"} for a bias-corrected
+and accelerated interval, which is only available for fitted cluster
+bootstrap objects produced by \code{generate(clusters = ...)} followed by
+\code{fit()}.}
 
 \item{point_estimate}{A data frame containing the observed statistic (in a
 \code{\link[=calculate]{calculate()}}-based workflow) or observed fit (in a
 \code{\link[=fit.infer]{fit()}}-based workflow). This object is likely the output
 of \code{\link[=calculate]{calculate()}} or \code{\link[=fit.infer]{fit()}} and need not
 to have been passed to \code{\link[=generate]{generate()}}. Set to \code{NULL} by
-default. Must be provided if \code{type} is \code{"se"} or \code{"bias-corrected"}.}
+default. Must be provided if \code{type} is \code{"se"}, \code{"bias-corrected"}, or
+\code{"bca"}.}
+
+\item{contrast}{For \code{type = "bca"} only. Selects which coefficient or
+linear combination of coefficients the interval is computed for. One of:
+
+\itemize{
+\item \code{NULL} (the default): one interval for every model coefficient,
+identified by its term name.
+\item a character vector of term names (e.g. \code{"age"} or
+\code{c("age", "collegedegree")}): intervals for those coefficients.
+\item a numeric vector defining a linear combination of coefficients.
+If named, names must be coefficient term names and unnamed entries
+default to a weight of zero, e.g. \code{c(age = 1, collegedegree = -1)}
+for the difference between two slopes. If unnamed, its length must
+equal the number of coefficients (ordered as in the observed \code{fit()}).
+}}
 }
 \value{
 A \link[tibble:tibble]{tibble} containing the following columns:

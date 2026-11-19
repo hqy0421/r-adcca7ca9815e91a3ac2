@@ -125,6 +125,14 @@ fit.infer <- function(object, ...) {
   # construct it out of the explanatory and response arguments
   formula <- get_formula(object)
 
+  # Cluster bootstrap objects require identity-preserving fits for the
+  # observed data, every resample, and every leave-one-cluster-out data set.
+  # `cluster_sampling` is only set by the cluster resampling path.
+  if (is_generated(object) && !is.null(attr(object, "cluster_sampling"))) {
+    x <- fit_cluster_bootstrap(object, formula, dots)
+    return(x)
+  }
+
   if (is_generated(object)) {
     x <- object |>
       tidyr::nest(data = -replicate) |>

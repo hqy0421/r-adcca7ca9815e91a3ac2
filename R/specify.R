@@ -19,6 +19,12 @@
 #' @param success The level of `response` that will be considered a success, as
 #'   a string. Needed for inference on one proportion, a difference in
 #'   proportions, and corresponding z stats.
+#' @param clusters For cluster bootstrap inference. An unquoted column name in
+#'   `x` giving the cluster (e.g. customer) that each row belongs to. Rows
+#'   sharing a cluster value will never be split across resamples. When
+#'   supplied, the column is retained through the pipeline so that it can be
+#'   used by [generate()]. Defaults to `NULL`, in which case rows are treated
+#'   as independent.
 #'
 #' @return A tibble containing the response (and explanatory, if specified)
 #'   variable data.
@@ -51,7 +57,8 @@ specify <- function(
   formula,
   response = NULL,
   explanatory = NULL,
-  success = NULL
+  success = NULL,
+  clusters = NULL
 ) {
   check_type(x, is.data.frame)
 
@@ -64,6 +71,11 @@ specify <- function(
 
   x <- parse_variables(x, formula, response, explanatory)
 
+  # Parse the (optional) cluster variable. Parsed before column selection so
+  # that the cluster column can be carried through the pipeline.
+  cluster_name <- parse_clusters(x, enquo(clusters))
+  attr(x, "clusters") <- cluster_name
+
   # Add attributes
   attr(x, "success") <- success
   attr(x, "generated") <- FALSE
@@ -73,9 +85,13 @@ specify <- function(
   # Check the success argument
   check_success_arg(x, success)
 
-  # Select variables
+  # Select variables, retaining the cluster column if one was supplied
   x <- x |>
-    select(any_of(c(response_name(x), explanatory_name(x))))
+    select(any_of(c(
+      response_name(x),
+      explanatory_name(x),
+      cluster_name
+    )))
 
   is_complete <- stats::complete.cases(x)
   if (!all(is_complete)) {
@@ -85,6 +101,43 @@ specify <- function(
 
   # Add "infer" class
   append_infer_class(x)
+}
+
+# Parse the `clusters` argument of specify() into a single column name
+# (a character string), or NULL when no cluster variable was supplied.
+parse_clusters <- function(x, clusters_quo, call = caller_env()) {
+  clusters_expr <- rlang::get_expr(clusters_quo)
+
+  if (is.null(clusters_expr)) {
+    return(NULL)
+  }
+
+  if (!rlang::is_symbolic(clusters_expr)) {
+    cli_abort(
+      "The `clusters` argument should be an unquoted column name (not a \\
+       string in quotation marks).",
+      call = call
+    )
+  }
+
+  cluster_names <- all.vars(clusters_expr)
+
+  if (length(cluster_names) != 1) {
+    cli_abort(
+      "The `clusters` argument should reference exactly one column.",
+      call = call
+    )
+  }
+
+  if (!cluster_names %in% colnames(x)) {
+    cli_abort(
+      'The cluster variable `{cluster_names}` cannot be found in this \\
+       dataframe.',
+      call = call
+    )
+  }
+
+  cluster_names
 }
 
 parse_variables <- function(

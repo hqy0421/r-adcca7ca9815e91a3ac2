@@ -1,5 +1,23 @@
 # infer (development version)
 
+* Added cluster bootstrap support for linear regression. Supply a cluster
+  column (e.g. a customer identifier) to `specify(clusters = )` and pass the
+  same column to `generate(clusters = )` with `type = "bootstrap"`: each
+  replicate draws the original number of clusters with replacement, includes
+  every row of each selected cluster (duplicating rows as their cluster is
+  reselected), and never splits rows sharing a cluster. The observed fit,
+  every replicate fit, and every leave-one-cluster-out fit use identical
+  factor encodings and coefficient identities. `get_confidence_interval()`
+  gains `type = "bca"` for bias-corrected and accelerated intervals on these
+  fitted cluster bootstrap objects, with the bias correction computed from all
+  actual replicate estimates and the acceleration from leave-one-cluster-out
+  fits. A new `contrast` argument selects individual coefficients by term
+  name or arbitrary linear combinations. Non-estimable replicates or
+  jackknife fits are retained as `NA` and reported explicitly rather than
+  silently dropped; BCa intervals error when an estimand is not estimable.
+  Existing row-wise resampling and the `"percentile"`, `"se"`, and
+  `"bias-corrected"` interval methods are unchanged.
+
 # infer 1.1.0
 
 * Fixed bug where adding `shade_confidence_interval(NULL)` or `shade_p_value(NULL)` 

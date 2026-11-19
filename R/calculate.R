@@ -348,7 +348,7 @@ calc_impl <- function(type, x, order, ...) {
 
 calc_impl_one_f <- function(f) {
   function(type, x, order, ...) {
-    col <- base::setdiff(names(x), "replicate")
+    col <- analysis_cols(x)
 
     if (!identical(dplyr::group_vars(x), "replicate")) {
       x <- dplyr::group_by(x, replicate)
@@ -384,7 +384,7 @@ calc_impl.sd <- calc_impl_one_f(stats::sd)
 
 calc_impl_success_f <- function(f, output_name) {
   function(type, x, order, ...) {
-    col <- base::setdiff(names(x), "replicate")
+    col <- analysis_cols(x)
 
     success <- attr(x, "success")
 

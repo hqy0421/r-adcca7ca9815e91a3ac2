@@ -58,7 +58,8 @@ copy_attrs <- function(
     "formula",
     "fitted",
     "type_desc_response",
-    "type_desc_explanatory"
+    "type_desc_explanatory",
+    "clusters"
   )
 ) {
   for (at in attrs) {
@@ -192,6 +193,13 @@ get_success_then_response_levels <- function(x) {
 
 is_generated <- function(x) {
   isTRUE(attr(x, "generated"))
+}
+
+# Columns that carry analysis data, as opposed to resampling bookkeeping.
+# The `replicate` column marks resamples and a cluster column (if any) only
+# identifies resampling units; neither is a response or explanatory variable.
+analysis_cols <- function(x) {
+  base::setdiff(names(x), c("replicate", attr(x, "clusters")))
 }
 
 is_hypothesized <- function(x) {

@@ -4,7 +4,14 @@
 \alias{specify}
 \title{Specify response and explanatory variables}
 \usage{
-specify(x, formula, response = NULL, explanatory = NULL, success = NULL)
+specify(
+  x,
+  formula,
+  response = NULL,
+  explanatory = NULL,
+  success = NULL,
+  clusters = NULL
+)
 }
 \arguments{
 \item{x}{A data frame that can be coerced into a \link[tibble:tibble]{tibble}.}
@@ -22,6 +29,13 @@ explanatory variable. This is an alternative to using the formula argument.}
 \item{success}{The level of \code{response} that will be considered a success, as
 a string. Needed for inference on one proportion, a difference in
 proportions, and corresponding z stats.}
+
+\item{clusters}{For cluster bootstrap inference. An unquoted column name in
+\code{x} giving the cluster (e.g. customer) that each row belongs to. Rows
+sharing a cluster value will never be split across resamples. When
+supplied, the column is retained through the pipeline so that it can be
+used by \code{\link[=generate]{generate()}}. Defaults to \code{NULL}, in which case rows are treated
+as independent.}
 }
 \value{
 A tibble containing the response (and explanatory, if specified)

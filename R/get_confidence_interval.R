@@ -20,13 +20,31 @@
 #' @param type A string giving which method should be used for creating the
 #'   confidence interval. The default is `"percentile"` with `"se"`
 #'   corresponding to (multiplier * standard error) and `"bias-corrected"` for
-#'   bias-corrected interval as other options.
+#'   bias-corrected interval as other options. Use `"bca"` for a bias-corrected
+#'   and accelerated interval, which is only available for fitted cluster
+#'   bootstrap objects produced by `generate(clusters = ...)` followed by
+#'   `fit()`.
 #' @param point_estimate A data frame containing the observed statistic (in a
 #'   [calculate()]-based workflow) or observed fit (in a
 #'   [`fit()`][fit.infer()]-based workflow). This object is likely the output
 #'   of [calculate()] or [`fit()`][fit.infer()] and need not
 #'   to have been passed to [generate()]. Set to `NULL` by
-#'   default. Must be provided if `type` is `"se"` or `"bias-corrected"`.
+#'   default. Must be provided if `type` is `"se"`, `"bias-corrected"`, or
+#'   `"bca"`.
+#' @param contrast For `type = "bca"` only. Selects which coefficient or
+#'   linear combination of coefficients the interval is computed for. One of:
+#'
+#'   \itemize{
+#'     \item `NULL` (the default): one interval for every model coefficient,
+#'       identified by its term name.
+#'     \item a character vector of term names (e.g. `"age"` or
+#'       `c("age", "collegedegree")`): intervals for those coefficients.
+#'     \item a numeric vector defining a linear combination of coefficients.
+#'       If named, names must be coefficient term names and unnamed entries
+#'       default to a weight of zero, e.g. `c(age = 1, collegedegree = -1)`
+#'       for the difference between two slopes. If unnamed, its length must
+#'       equal the number of coefficients (ordered as in the observed `fit()`).
+#'   }
 #'
 #' @return A [tibble][tibble::tibble] containing the following columns:
 #'
@@ -147,7 +165,8 @@ get_confidence_interval <- function(
   x,
   level = 0.95,
   type = NULL,
-  point_estimate = NULL
+  point_estimate = NULL,
+  contrast = NULL
 ) {
   # Inform if no `level` was explicitly supplied
   if (!("level" %in% rlang::call_args_names(match.call())) && !suppress_infer_messages()) {
@@ -160,6 +179,26 @@ get_confidence_interval <- function(
     } else {
       type <- "percentile"
     }
+  }
+
+  # Cluster-aware BCa intervals carry their own validation and term
+  # handling, including user-specified linear contrasts.
+  if (identical(type, "bca")) {
+    return(
+      ci_bca_cluster(
+        x = x,
+        level = level,
+        point_estimate = point_estimate,
+        contrast = contrast
+      )
+    )
+  }
+
+  if (!is.null(contrast)) {
+    cli_warn(
+      "The {.arg contrast} argument is only used for {.val bca} confidence \\
+       intervals and will be ignored for {.val {type}} intervals."
+    )
   }
 
   if (is_fitted(x)) {
@@ -214,12 +253,19 @@ get_confidence_interval <- function(
 
 #' @rdname get_confidence_interval
 #' @export
-get_ci <- function(x, level = 0.95, type = NULL, point_estimate = NULL) {
+get_ci <- function(
+  x,
+  level = 0.95,
+  type = NULL,
+  point_estimate = NULL,
+  contrast = NULL
+) {
   get_confidence_interval(
     x,
     level = level,
     type = type,
-    point_estimate = point_estimate
+    point_estimate = point_estimate,
+    contrast = contrast
   )
 }
 
@@ -333,17 +379,19 @@ check_ci_args <- function(x, level, type, point_estimate, call = caller_env()) {
     )
   }
 
-  if (!(type %in% c("percentile", "se", "bias-corrected"))) {
+  if (!(type %in% c("percentile", "se", "bias-corrected", "bca"))) {
     cli_abort(
-      'The options for `type` are "percentile", "se", or "bias-corrected".',
+      'The options for `type` are "percentile", "se", "bias-corrected", \\
+       or "bca".',
       call = call
     )
   }
 
-  if ((type %in% c("se", "bias-corrected")) && is.null(point_estimate)) {
+  if ((type %in% c("se", "bias-corrected", "bca")) &&
+    is.null(point_estimate)) {
     cli_abort(
       'A numeric value needs to be given for {.arg point_estimate} \\
-       for `type` "se" or "bias-corrected".',
+       for `type` "se", "bias-corrected", or "bca".',
       call = call
     )
   }

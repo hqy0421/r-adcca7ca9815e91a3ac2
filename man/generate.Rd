@@ -4,7 +4,14 @@
 \alias{generate}
 \title{Generate resamples, permutations, or simulations}
 \usage{
-generate(x, reps = 1, type = NULL, variables = !!response_expr(x), ...)
+generate(
+  x,
+  reps = 1,
+  type = NULL,
+  variables = !!response_expr(x),
+  clusters = NULL,
+  ...
+)
 }
 \arguments{
 \item{x}{A data frame that can be coerced into a \link[tibble:tibble]{tibble}.}
@@ -19,6 +26,18 @@ data reflecting the null hypothesis. Currently one of
 data to permute (independently of each other). Defaults to only the
 response variable. Note that any derived effects that depend on these
 columns (e.g., interaction effects) will also be affected.}
+
+\item{clusters}{For cluster bootstrap inference. An unquoted column name in
+the data giving the cluster (e.g. customer) that each row belongs to.
+Supplying this argument switches \code{type = "bootstrap"} from row-wise to
+cluster resampling: each bootstrap replicate draws the original number of
+clusters with replacement and includes every row belonging to each
+selected cluster, duplicating rows as many times as their cluster is
+selected. Rows sharing a cluster are never split. The same column must
+also have been supplied to \code{\link[=specify]{specify()}} via its \code{clusters} argument so
+that it is retained through the pipeline. Defaults to \code{NULL}, in which
+case individual rows are resampled as before. Ignored (with a warning)
+for generation types other than \code{"bootstrap"}.}
 
 \item{...}{Currently ignored.}
 }
